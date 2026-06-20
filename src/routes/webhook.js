@@ -68,6 +68,8 @@ const {
   registrarOActualizarLead,
   crearLeadInicialSiNoExiste,
   pausarFollowup,
+  setPausaBot,
+  estaPausado,
 } = require("../services/supabase");
 const { calcularDemora, esperar } = require("../utils/humanDelay");
 
@@ -100,6 +102,12 @@ function marcarProcesado(id) {
  */
 async function procesarMensajesAcumulados(telefono, mensajes) {
   try {
+    // Modo manual: si el operador puso este chat en pausa con "-", Lena no responde.
+    if (await estaPausado(telefono)) {
+      console.log(`[PAUSA] ${telefono} en modo manual — se omite respuesta automática`);
+      return;
+    }
+
     const textosFinales = [];
     let imagenBase64 = null;
     let imagenMime = null;
@@ -377,7 +385,25 @@ router.post("/", (req, res) => {
   const data = req.body?.data;
 
   if (!data) return res.status(200).json({ status: "ignored", reason: "no data" });
-  if (data.key?.fromMe === true) return res.status(200).json({ status: "ignored", reason: "fromMe" });
+
+  // Mensajes propios (fromMe): normalmente se ignoran. PERO si el operador escribe
+  // exactamente "-" o "+" en un chat, se interpreta como comando de control manual:
+  //   "-" → pausa: Lena deja de responder a ese contacto (lo atiende un humano)
+  //   "+" → reactiva: Lena vuelve a responder automáticamente
+  if (data.key?.fromMe === true) {
+    const jidPropio = data.key?.remoteJid || "";
+    const comando = (extraerTexto(data.message) || "").trim();
+    if ((comando === "-" || comando === "+") && !jidPropio.endsWith("@g.us")) {
+      const telCmd = extraerTelefono(jidPropio);
+      if (telCmd) {
+        const pausar = comando === "-";
+        setPausaBot(telCmd, pausar)
+          .then(() => console.log(`[PAUSA] ${telCmd} → ${pausar ? "PAUSADO (modo manual)" : "REACTIVADO (auto)"}`))
+          .catch((e) => console.warn(`[PAUSA] Error con ${telCmd}: ${e.message}`));
+      }
+    }
+    return res.status(200).json({ status: "ignored", reason: "fromMe" });
+  }
 
   const remoteJid = data.key?.remoteJid || "";
   if (remoteJid.endsWith("@g.us")) return res.status(200).json({ status: "ignored", reason: "group" });

@@ -256,6 +256,7 @@ async function obtenerLeadsEnFollowup() {
     .from(TABLA_LEADS)
     .select("id_lead, id_usuario, nombre_cliente, paciente, edad, para_quien, sede, motivo, psicologo_asignado, paso_followup, fecha_actualizacion, precalificacion, resumen")
     .lt("paso_followup", 8)
+    .eq("bot_pausado", false) // los chats en modo manual no reciben recontacto automático
     .not("id_usuario", "is", null);
   lanzarSiError(error, "obtenerLeadsEnFollowup");
 
@@ -299,6 +300,60 @@ async function pausarFollowup(telefono) {
   lanzarSiError(error, "pausarFollowup");
 }
 
+/**
+ * Modo manual: activa/desactiva la pausa de respuesta automática de un contacto.
+ * Cuando bot_pausado=true, Lena no responde a ese número (lo atiende un humano)
+ * y tampoco entra en la cola de recontacto. Se controla con los comandos "-" / "+".
+ */
+async function setPausaBot(telefono, pausado) {
+  const ahora = new Date().toISOString();
+
+  const { data: existing, error: errSel } = await supabase
+    .from(TABLA_LEADS)
+    .select("id_lead")
+    .eq("id_usuario", telefono)
+    .maybeSingle();
+  lanzarSiError(errSel, "setPausaBot.select");
+
+  if (existing) {
+    const { error } = await supabase
+      .from(TABLA_LEADS)
+      .update({ bot_pausado: pausado, fecha_actualizacion: ahora })
+      .eq("id_lead", existing.id_lead);
+    lanzarSiError(error, "setPausaBot.update");
+    return;
+  }
+
+  const { error } = await supabase.from(TABLA_LEADS).insert({
+    id_usuario:          telefono,
+    bot_pausado:         pausado,
+    precalificacion:     "NUEVO",
+    fecha:               ahora,
+    fecha_actualizacion: ahora,
+    paso_followup:       0,
+  });
+  lanzarSiError(error, "setPausaBot.insert");
+}
+
+/**
+ * Devuelve true si el contacto está en modo manual (Lena no debe responder).
+ * Fail-open: si no se puede consultar, devuelve false para que Lena responda igual.
+ */
+async function estaPausado(telefono) {
+  try {
+    const { data, error } = await supabase
+      .from(TABLA_LEADS)
+      .select("bot_pausado")
+      .eq("id_usuario", telefono)
+      .maybeSingle();
+    if (error) throw error;
+    return !!data?.bot_pausado;
+  } catch (e) {
+    console.warn(`[PAUSA] No se pudo verificar estado de ${telefono}: ${e.message}`);
+    return false;
+  }
+}
+
 module.exports = {
   buscarMemoria,
   crearMemoria,
@@ -308,4 +363,6 @@ module.exports = {
   obtenerLeadsEnFollowup,
   actualizarPasoFollowup,
   pausarFollowup,
+  setPausaBot,
+  estaPausado,
 };
