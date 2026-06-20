@@ -74,10 +74,10 @@ const {
 const { calcularDemora, esperar } = require("../utils/humanDelay");
 
 // ── DEBOUNCE ────────────────────────────────────────────────────────────────
-// Espera 15s desde el ÚLTIMO mensaje del usuario antes de procesar.
+// Espera 60s desde el ÚLTIMO mensaje del usuario antes de procesar.
 // Si llegan varios mensajes seguidos (burbujas), los acumula y los procesa juntos
-// como si fueran uno solo. Así Eli siempre da UNA sola respuesta.
-const DEBOUNCE_MS = 15_000; // 15 segundos — agrupa burbujas y da sensación más humana
+// como si fueran uno solo. Así Lena siempre da UNA sola respuesta.
+const DEBOUNCE_MS = 60_000; // 60 segundos — agrupa burbujas y da sensación más humana
 const pendingMessages = new Map(); // telefono → { timer, mensajes[] }
 
 // ── DEDUPLICACIÓN ────────────────────────────────────────────────────────────
@@ -372,7 +372,7 @@ async function procesarMensajesAcumulados(telefono, mensajes) {
  * POST /webhook
  * Recibe eventos de Evolution API.
  * Responde 200 de inmediato y acumula el mensaje en el buffer de debounce.
- * Después de 45s sin nuevos mensajes del mismo número, muestra "escribiendo..."
+ * Después de 60s sin nuevos mensajes del mismo número, muestra "escribiendo..."
  * y procesa todos los mensajes acumulados como uno solo.
  */
 router.post("/", (req, res) => {
