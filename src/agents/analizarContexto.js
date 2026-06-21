@@ -1,13 +1,13 @@
 const axios = require("axios");
 
-const SYSTEM_ANALIZAR = `Analizas conversaciones de WhatsApp del consultorio del Dr. César Carlos Coronado, cirujano plástico en Perú. La asistente se llama Lena. Tu tarea es determinar en qué etapa está la conversación y qué datos del lead ya se conocen.
+const SYSTEM_ANALIZAR = `Analizas conversaciones de WhatsApp del consultorio del Dr. César Carlos Coronado, cirujano plástico en Perú. La asistente se llama Tatiana. Tu tarea es determinar en qué etapa está la conversación y qué datos del lead ya se conocen.
 
 ETAPAS:
-- "apertura"      → primer contacto, Lena aún no sabe nada de la persona
+- "apertura"      → primer contacto, Tatiana aún no sabe nada de la persona
 - "datos"         → se están recogiendo los datos básicos (nombre, edad, ciudad)
 - "interes"       → la persona dice o se le pregunta qué procedimiento le interesa
-- "info"          → Lena está dando precio referencial, tecnología o info de la consulta
-- "cierre"        → la persona quiere agendar; Lena está pidiendo nombre y DNI para coordinar
+- "info"          → Tatiana está dando precio referencial, tecnología o info de la consulta
+- "cierre"        → la persona quiere agendar; Tatiana está pidiendo nombre y DNI para coordinar
 - "fuera_flujo"   → número equivocado, spam o mensaje completamente irrelevante
 
 DATOS DEL LEAD (marca los que ya están confirmados en la conversación):

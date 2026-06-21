@@ -3,9 +3,9 @@ const axios = require("axios");
 const UMBRAL_MENSAJES = 20; // comprimir cuando supera este número
 const MENSAJES_RECIENTES = 6; // cuántos mensajes recientes conservar verbatim
 
-const SYSTEM_RESUMIR = `Eres un comprimidor de historial de conversaciones de WhatsApp del consultorio del Dr. César Carlos Coronado, cirujano plástico en Perú. La asistente se llama Lena.
+const SYSTEM_RESUMIR = `Eres un comprimidor de historial de conversaciones de WhatsApp del consultorio del Dr. César Carlos Coronado, cirujano plástico en Perú. La asistente se llama Tatiana.
 
-Recibirás el historial de conversación entre Lena (asistente) y una persona interesada. Tu tarea es producir un resumen compacto que permita a Lena continuar la conversación sin haber leído todo.
+Recibirás el historial de conversación entre Tatiana (asistente) y una persona interesada. Tu tarea es producir un resumen compacto que permita a Tatiana continuar la conversación sin haber leído todo.
 
 El resumen debe incluir:
 - Nombre de quien escribe y para quién es el procedimiento (si aplica)
