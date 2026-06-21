@@ -230,6 +230,20 @@ async function enviarSticker(numero, url) {
   });
 }
 
+/**
+ * Envía una NOTA DE VOZ (PTT, con su ondita) por WhatsApp.
+ * Evolution convierte el audio al formato de nota de voz automáticamente.
+ * @param {string} numero - Número destino (ej: 51987654321)
+ * @param {string} base64 - Audio en base64 (mp3/ogg)
+ */
+async function enviarAudio(numero, base64) {
+  const instancia = process.env.EVOLUTION_INSTANCE;
+  await evolutionClient.post(`/message/sendWhatsAppAudio/${instancia}`, {
+    number: numero,
+    audio: base64,
+  });
+}
+
 module.exports = {
   iniciarPresencia,
   presenciaInmediata,
@@ -238,6 +252,7 @@ module.exports = {
   enviarMensajeChunked,
   enviarImagenUrl,
   enviarSticker,
+  enviarAudio,
   extraerTipoMensaje,
   extraerTexto,
   extraerTelefono,

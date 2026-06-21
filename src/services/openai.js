@@ -3,6 +3,7 @@ const FormData = require("form-data");
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions";
+const TTS_URL = "https://api.openai.com/v1/audio/speech";
 
 const SYSTEM_PROMPT = `Eres Tatiana, la asistente del consultorio del Dr. César Augusto Carlos Coronado, cirujano plástico en Perú. Hablas y te comportas en todo momento como una persona real del equipo del consultorio.
 
@@ -192,12 +193,21 @@ Cuando el lead completó el flujo (tiene: nombre + edad + ciudad + procedimiento
 REGLA: NO marques lead_cerrado=true si falta algún dato clave (nombre, edad, ciudad, procedimiento, DNI, confirmación de agendar). Si falta algo, sigue recogiéndolo antes de cerrar.
 
 ════════════════════════════════════
+NOTAS DE VOZ
+════════════════════════════════════
+Puedes responder con una NOTA DE VOZ (campo "voz": true) para sonar más humana y cercana. Úsala en mensajes CONVERSACIONALES, cálidos y cortos: respuestas amables, ánimo, aclaraciones simples, confirmaciones.
+USA TEXTO (voz: false) SIEMPRE que el mensaje tenga datos que la persona necesite LEER o COPIAR: precios, direcciones de sede, datos de pago/Yape, DNI, números, enlaces, o mensajes largos con varios datos.
+El PRIMER saludo de la conversación va siempre en TEXTO (para que la persona vea tu nombre escrito).
+Cuando "voz" es true, el texto de "respuesta" se convierte en audio: escríbelo natural, como si lo dijeras en voz alta, SIN emojis ni símbolos. Alterna voz y texto de forma natural — no mandes todo en voz.
+
+════════════════════════════════════
 FORMATO DE RESPUESTA OBLIGATORIO
 ════════════════════════════════════
 Siempre responde con JSON válido, sin excepciones:
 
 {
   "respuesta": "El mensaje que le envías al usuario por WhatsApp",
+  "voz": false,
   "imagenes": [],
   "stickers": [],
   "lead_cerrado": false,
@@ -226,6 +236,8 @@ CAMPO "calificacion": estima la intención de compra del lead:
 - "BAJO": solo curiosea o pregunta algo suelto sin intención clara.
 
 CAMPO "imagenes" y "stickers": por ahora déjalos siempre como []. (Tatiana aún no tiene imágenes ni stickers de marca configurados.)
+
+CAMPO "voz": true si quieres que ESTA respuesta se envíe como nota de voz; false para texto. (Ver NOTAS DE VOZ.)
 
 CAMPO "rechazo_followup":
 Marca true SOLO cuando el lead expresa de forma CLARA Y EXPLÍCITA que no quiere agendar o no quiere más mensajes:
@@ -300,6 +312,7 @@ async function procesarConIA(history, nuevoMensaje, opciones = {}) {
 
   return {
     respuesta: parsed.respuesta,
+    voz: parsed.voz === true,
     imagenes: parsed.imagenes || [],
     stickers: parsed.stickers || [],
     lead: parsed.lead,
@@ -345,4 +358,37 @@ async function transcribirAudio(base64, mimetype) {
   return response.data.text;
 }
 
-module.exports = { procesarConIA, transcribirAudio };
+/**
+ * Convierte texto a voz (nota de voz) usando la API TTS de OpenAI.
+ * Devuelve el audio en base64 (mp3), listo para enviar por Evolution.
+ *
+ * Voz y modelo configurables por entorno: TTS_VOICE (def. "nova") y
+ * TTS_MODEL (def. "gpt-4o-mini-tts"). Si falla, el caller hace fallback a texto.
+ *
+ * @param {string} texto - Texto a convertir en audio
+ * @returns {Promise<string>} Audio mp3 en base64
+ */
+async function generarAudio(texto) {
+  const modelo = process.env.TTS_MODEL || "gpt-4o-mini-tts";
+  const payload = {
+    model: modelo,
+    voice: process.env.TTS_VOICE || "nova",
+    input: texto,
+    response_format: "mp3",
+  };
+
+  // Solo los modelos gpt-4o-*-tts aceptan "instructions" para guiar el tono.
+  if (modelo.includes("gpt-4o")) {
+    payload.instructions =
+      "Habla en español latinoamericano neutro, con tono cálido, cercano y natural, como una asistente amable de un consultorio. Ritmo relajado, nada robótico.";
+  }
+
+  const response = await axios.post(TTS_URL, payload, {
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    responseType: "arraybuffer",
+  });
+
+  return Buffer.from(response.data, "binary").toString("base64");
+}
+
+module.exports = { procesarConIA, transcribirAudio, generarAudio };

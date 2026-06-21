@@ -9,6 +9,7 @@ const {
   enviarMensajeChunked,
   enviarImagenUrl,
   enviarSticker,
+  enviarAudio,
   extraerTexto,
   extraerTelefono,
   extraerTipoMensaje,
@@ -53,7 +54,7 @@ const STICKERS = {
   gracias_por_tu_mensaje:`${STICKER_BASE}/gracias_por_tu_mensaje.png`,
 };
 
-const { procesarConIA, transcribirAudio } = require("../services/openai");
+const { procesarConIA, transcribirAudio, generarAudio } = require("../services/openai");
 const { derivarLeadAAsistente } = require("../services/routing");
 const { registrarLeadEnSheets, registrarLeadEnPipeline } = require("../services/googlesheets");
 const { detectarCrisis } = require("../agents/detectarCrisis");
@@ -225,7 +226,7 @@ async function procesarMensajesAcumulados(telefono, mensajes) {
     const presencia = iniciarPresencia(telefono);
 
     // ── 3. Procesar con IA ─────────────────────────────────────────────────
-    const { respuesta, lead, imagenes, stickers, lead_cerrado, resumen_coordinadora, historialActualizado } = await procesarConIA(
+    const { respuesta, voz, lead, imagenes, stickers, lead_cerrado, resumen_coordinadora, historialActualizado } = await procesarConIA(
       historyPrevio,
       mensajeParaIA,
       { imagenBase64, imagenMime }
@@ -259,8 +260,22 @@ async function procesarMensajesAcumulados(telefono, mensajes) {
       }
     }
 
-    // Texto después (incluye "Ahí están..." y "¿Qué tal te parece la ubicación?")
-    await enviarMensajeChunked(telefono, respuesta);
+    // Respuesta: nota de voz si el modelo lo decidió (voz=true), si no, texto.
+    // Si la generación o el envío del audio falla, cae a texto para no perder el mensaje.
+    let audioEnviado = false;
+    if (voz && respuesta && respuesta.trim()) {
+      try {
+        const audioBase64 = await generarAudio(respuesta);
+        await enviarAudio(telefono, audioBase64);
+        audioEnviado = true;
+        console.log(`[VOZ] ${telefono} → nota de voz enviada`);
+      } catch (e) {
+        console.warn(`[VOZ] Error con audio de ${telefono}, fallback a texto: ${e.message}`);
+      }
+    }
+    if (!audioEnviado) {
+      await enviarMensajeChunked(telefono, respuesta);
+    }
 
     // ── 5. Persistencia y routing (en paralelo) ────────────────────────────
     const historialParaGuardar = await resumirSiNecesario(historialActualizado);
