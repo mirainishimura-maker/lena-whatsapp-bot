@@ -87,6 +87,23 @@ const pendingMessages = new Map(); // telefono → { timer, mensajes[] }
 const processedIds = new Map(); // messageId → expiry timestamp
 const ID_TTL_MS = 5 * 60 * 1000;
 
+// ── MODO PRUEBA (lista blanca) ────────────────────────────────────────────────
+// Si NUMEROS_PRUEBA está definido (números separados por coma), Lena SOLO responde
+// a esos números e ignora al resto. Sirve para probar sin que conteste a clientes
+// reales. Vacío/ausente = responde a todos (producción normal).
+// Ej. en EasyPanel:  NUMEROS_PRUEBA=51904301391
+const NUMEROS_PRUEBA = (process.env.NUMEROS_PRUEBA || "")
+  .split(",")
+  .map((n) => n.replace(/\D/g, ""))
+  .filter(Boolean);
+
+function permitidoEnPrueba(telefono) {
+  if (NUMEROS_PRUEBA.length === 0) return true; // sin lista → responde a todos
+  const tel = String(telefono).replace(/\D/g, "");
+  // compara tolerando que uno tenga código de país y el otro no
+  return NUMEROS_PRUEBA.some((n) => tel === n || tel.endsWith(n) || n.endsWith(tel));
+}
+
 function yaFueProcesado(id) {
   const expiry = processedIds.get(id);
   if (!expiry) return false;
@@ -438,6 +455,12 @@ router.post("/", (req, res) => {
 
   if (!telefono || !tipoMensaje) {
     return res.status(200).json({ status: "ignored", reason: "unsupported message type" });
+  }
+
+  // Modo prueba: si hay lista blanca, ignorar cualquier número fuera de ella
+  if (!permitidoEnPrueba(telefono)) {
+    console.log(`[MODO PRUEBA] Ignorado ${telefono} (no está en NUMEROS_PRUEBA)`);
+    return res.status(200).json({ status: "ignored", reason: "no en lista de prueba" });
   }
 
   console.log(`[WEBHOOK] ${telefono} (${tipoMensaje}): "${textoUsuario || "—"}"`);
