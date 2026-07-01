@@ -39,7 +39,7 @@ async function buscarMemoria(telefono) {
     .select("message_content, assistant_response, date_time")
     .eq("user_id", telefono)
     .order("date_time", { ascending: false })
-    .limit(10);
+    .limit(20);
   lanzarSiError(errChats, "buscarMemoria.chats");
 
   if (!chats || chats.length === 0) return null;
